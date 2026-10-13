@@ -25,6 +25,77 @@ function measurement(value, unit) {
   return Number.isFinite(value) ? `${value.toLocaleString('ko-KR', { maximumFractionDigits: 1 })}${unit}` : '—';
 }
 
+const historyKey = 'daily-weather.history.v1';
+const historyList = document.querySelector('#history-list');
+const historyStatus = document.querySelector('#history-status');
+let savedResults = [];
+
+function validResult(entry) {
+  const data = entry?.data;
+  return typeof entry?.id === 'string' && typeof entry.savedAt === 'string'
+    && Number.isFinite(Date.parse(entry.savedAt))
+    && typeof data?.location?.name === 'string'
+    && typeof data.location.region === 'string' && typeof data.location.country === 'string'
+    && typeof data?.current?.time === 'string' && typeof data.timezone === 'string'
+    && Number.isFinite(data.current.temperature_2m);
+}
+
+function persistHistory(next) {
+  try {
+    localStorage.setItem(historyKey, JSON.stringify(next));
+    savedResults = next;
+    renderHistory();
+    return true;
+  } catch {
+    historyStatus.textContent = '저장 공간이 부족하거나 브라우저에서 저장을 차단했습니다. 저장 또는 삭제가 반영되지 않았습니다.';
+    return false;
+  }
+}
+
+function renderHistory() {
+  historyList.replaceChildren();
+  document.querySelector('#history-empty').hidden = savedResults.length > 0;
+  for (const entry of savedResults) {
+    const { location, current, timezone } = entry.data;
+    const [description, icon] = describe(current.weather_code, current.is_day);
+    const item = document.createElement('li');
+    item.className = 'history-item';
+    const title = document.createElement('h3');
+    title.textContent = location.name;
+    const region = document.createElement('p');
+    region.className = 'hint';
+    region.textContent = [location.region, location.country].filter(Boolean).join(' · ');
+    const summary = document.createElement('p');
+    summary.textContent = `${icon} ${description} · ${measurement(current.temperature_2m, '°C')} · 체감 ${measurement(current.apparent_temperature, '°C')} · 습도 ${measurement(current.relative_humidity_2m, '%')} · 풍속 ${measurement(current.wind_speed_10m, ' m/s')}`;
+    const time = document.createElement('p');
+    time.className = 'hint';
+    time.textContent = `${current.time.replace('T', ' ')} 기준 (${timezone}) · 저장: ${new Date(entry.savedAt).toLocaleString('ko-KR')}`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '삭제';
+    remove.setAttribute('aria-label', `${location.name} 저장 결과 삭제`);
+    remove.addEventListener('click', () => {
+      const index = savedResults.findIndex((result) => result.id === entry.id);
+      if (persistHistory(savedResults.filter((result) => result.id !== entry.id))) {
+        historyStatus.textContent = `${location.name} 저장 결과를 삭제했습니다.`;
+        const buttons = historyList.querySelectorAll('button');
+        (buttons[Math.min(index, buttons.length - 1)] || input).focus();
+      }
+    });
+    item.append(title, region, summary, time, remove);
+    historyList.append(item);
+  }
+}
+
+try {
+  const stored = JSON.parse(localStorage.getItem(historyKey) || '[]');
+  if (!Array.isArray(stored) || !stored.every(validResult)) throw new Error('Invalid history');
+  savedResults = stored;
+} catch {
+  historyStatus.textContent = '저장 기록을 읽지 못했습니다. 새 검색 결과는 저장을 다시 시도합니다.';
+}
+renderHistory();
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const city = input.value.trim();
@@ -60,6 +131,10 @@ form.addEventListener('submit', async (event) => {
     card.hidden = false;
     status.textContent = `${data.location.name}의 현재 날씨를 확인했습니다.`;
     status.hidden = true;
+    const entry = { id: crypto.randomUUID(), savedAt: new Date().toISOString(), data };
+    if (validResult(entry) && persistHistory([entry, ...savedResults])) {
+      historyStatus.textContent = `${data.location.name} 검색 결과를 저장했습니다.`;
+    }
   } catch (error) {
     status.className = 'error';
     status.textContent = error.name === 'TimeoutError' ? '응답 시간이 초과되었습니다. 다시 시도해 주세요.'

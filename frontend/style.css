@@ -34,4 +34,12 @@ footer { margin-top: 28px; text-align: center; font-size: .8rem; color: #5a6b84;
 footer a { color: #4163a0; text-underline-offset: 3px; }
 footer p { margin-top: 5px; }
 [hidden] { display: none !important; }
+#history { margin-top: 32px; }
+#history h2 { font-size: 1.3rem; }
+#history-list { list-style: none; padding: 0; display: grid; gap: 12px; }
+.history-item { padding: 18px; background: white; border: 1px solid #dae3f3; border-radius: 16px; overflow-wrap: anywhere; }
+.history-item h3 { margin: 0 0 8px; }
+.history-item p { margin: 8px 0; line-height: 1.7; }
+.history-item button { min-height: 44px; padding: 10px 16px; background: #fff1f2; color: #a12736; }
+.history-item button:hover { background: #ffe0e4; }
 @media (max-width: 480px) { main { margin-top: 40px; } .search-row { flex-direction: column; } #weather { padding: 24px 20px; } dd { font-size: 1rem; } }
